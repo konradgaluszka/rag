@@ -1,0 +1,8 @@
+numpy
+pypdf
+beautifulsoup4
+markdown
+sentence-transformers
+faiss-cpu
+scikit-learn
+joblib

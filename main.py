@@ -276,12 +276,17 @@ class TfidfEmbedder(Embedder):
         return inst
 
 
-def build_embedder(prefer_neural: bool, model_name: str) -> Embedder:
+def build_embedder(prefer_neural: bool, model_name: str, allow_fallback: bool) -> Embedder:
     if prefer_neural:
         try:
             return SentenceTransformerEmbedder(model_name=model_name)
-        except Exception:
-            pass
+        except Exception as e:
+            if allow_fallback:
+                return TfidfEmbedder()
+            raise RuntimeError(
+                "SentenceTransformers requested but unavailable. Install: pip install sentence-transformers "
+                "or pass --allow_fallback to use TF-IDF."
+            ) from e
     return TfidfEmbedder()
 
 
@@ -438,6 +443,7 @@ def build_offline_pipeline(
     prefer_neural: bool,
     model_name: str,
     prefer_faiss: bool,
+    allow_fallback: bool,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -451,7 +457,12 @@ def build_offline_pipeline(
 
     texts = [c.text for c in chunks]
 
-    embedder = build_embedder(prefer_neural=prefer_neural, model_name=model_name)
+    embedder = build_embedder(
+        prefer_neural=prefer_neural,
+        model_name=model_name,
+        allow_fallback=allow_fallback,
+    )
+    print(f"Using embedder: {embedder.__class__.__name__}")
     # TF-IDF needs fit; SentenceTransformers doesn't
     try:
         embedder.fit(texts)
@@ -519,6 +530,11 @@ def main() -> None:
     p.add_argument("--prefer_neural", action="store_true", help="Prefer SentenceTransformers embeddings")
     p.add_argument("--model_name", type=str, default="all-MiniLM-L6-v2")
     p.add_argument("--prefer_faiss", action="store_true", help="Prefer FAISS index")
+    p.add_argument(
+        "--allow_fallback",
+        action="store_true",
+        help="Allow TF-IDF fallback if SentenceTransformers isn't available",
+    )
     p.add_argument("--query", type=str, default=None, help="If set, run a retrieval test using existing index")
     p.add_argument("--top_k", type=int, default=5)
 
@@ -540,6 +556,7 @@ def main() -> None:
         prefer_neural=args.prefer_neural,
         model_name=args.model_name,
         prefer_faiss=args.prefer_faiss,
+        allow_fallback=args.allow_fallback,
     )
 
 
