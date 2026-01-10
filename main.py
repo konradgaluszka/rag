@@ -29,6 +29,7 @@ import hashlib
 import json
 import os
 import re
+import uuid
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -419,9 +420,11 @@ class QdrantCosineIndex(VectorIndex):
         points = []
         for chunk, vector in zip(chunks, vectors):
             payload = asdict(chunk)
+            # Qdrant point IDs must be unsigned int or UUID.
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, chunk.chunk_id))
             points.append(
                 qmodels.PointStruct(
-                    id=chunk.chunk_id,
+                    id=point_id,
                     vector=vector.tolist(),
                     payload=payload,
                 )
@@ -434,14 +437,15 @@ class QdrantCosineIndex(VectorIndex):
         if q.ndim != 1:
             raise RuntimeError("Qdrant search expects a 1D query vector.")
 
-        results = self.client.search(
+        response = self.client.query_points(
             collection_name=self.collection,
-            query_vector=q.tolist(),
+            query=q.tolist(),
             limit=top_k,
             with_payload=True,
         )
-        payloads = [r.payload or {} for r in results]
-        scores = [float(r.score) for r in results]
+        points = response.points
+        payloads = [p.payload or {} for p in points]
+        scores = [float(p.score) for p in points]
         return payloads, scores
 
     def save(self, out_dir: Path) -> None:

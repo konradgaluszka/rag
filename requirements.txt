@@ -6,4 +6,4 @@ sentence-transformers
 faiss-cpu
 scikit-learn
 joblib
-qdrant-client
+qdrant-client>=1.8.0
