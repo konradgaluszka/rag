@@ -10,7 +10,7 @@ What this script does:
 6) Saves index + metadata to an output folder
 
 Run:
-  python rag_offline_pipeline.py --input ./data/raw --out ./index --chunk_words 900 --overlap_words 120
+  python -m backend.main --input ./data/raw --out ./index --chunk_words 900 --overlap_words 120
 
 Optional installs (recommended):
   pip install pypdf beautifulsoup4 markdown sentence-transformers faiss-cpu
@@ -19,7 +19,7 @@ Fallback-only installs (if you want zero neural deps):
   pip install pypdf beautifulsoup4 markdown scikit-learn
 
 Then you can test retrieval:
-  python rag_offline_pipeline.py --query "your question" --out ./index
+  python -m backend.main --query "your question" --out ./index
 """
 
 from __future__ import annotations

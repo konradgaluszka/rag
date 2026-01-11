@@ -1,0 +1,5 @@
+{
+  "type": "qdrant",
+  "url": "http://localhost:6333",
+  "collection": "rag_chunks"
+}

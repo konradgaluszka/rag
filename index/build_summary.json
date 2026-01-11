@@ -1,0 +1,7 @@
+{
+  "n_docs": 1,
+  "n_chunks": 37,
+  "embedding_dim": 384,
+  "chunk_size_words": 900,
+  "overlap_words": 120
+}
