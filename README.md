@@ -12,19 +12,6 @@ docker run --rm -p 6333:6333 qdrant/qdrant:latest
 
 Qdrant will be available at `http://localhost:6333`.
 
-## Install with Poetry
-
-```bash
-poetry install
-```
-
-Run the pipeline via Poetry:
-
-```bash
-poetry run python main.py \
-  --input ./data/raw \
-  --out ./index
-```
 
 ## Ingest and Store Vectors in Qdrant
 
