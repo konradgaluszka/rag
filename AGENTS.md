@@ -21,8 +21,8 @@
 ## Testing Guidelines
 - Tests use the stdlib `unittest` framework.
 - Integration tests live in `tests/integration_test/` and should be named `*_test.py` or similar (see `integration_test.py`).
-- Run: `python -m unittest tests/integration_test/integration_test.py`.
-- Integration tests require Docker and Qdrant (`docker compose up -d`).
+- Run with the project venv: `.venv/bin/python -m unittest tests/integration_test/integration_test.py`.
+- Integration tests start Qdrant via Docker Compose; ensure Docker is running.
 
 ## Commit & Pull Request Guidelines
 - Commit history uses short, imperative messages (e.g., “Add integration tests”).
