@@ -1,4 +1,3 @@
-import json
 import os
 import tempfile
 from pathlib import Path
@@ -28,22 +27,11 @@ class QueryRequest(BaseModel):
     top_k: int = 5
 
 
-def _bool_env(name: str, default: bool) -> bool:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def _get_config() -> dict:
     return {
-        "out_dir": Path(os.environ.get("RAG_OUT_DIR", "./index")),
         "chunk_words": int(os.environ.get("CHUNK_WORDS", "900")),
         "overlap_words": int(os.environ.get("OVERLAP_WORDS", "120")),
-        "prefer_neural": _bool_env("PREFER_NEURAL", True),
         "model_name": os.environ.get("MODEL_NAME", "all-MiniLM-L6-v2"),
-        "allow_fallback": _bool_env("ALLOW_FALLBACK", False),
-        "use_qdrant": True,
         "qdrant_url": os.environ.get("QDRANT_URL", "http://localhost:6333"),
         "qdrant_collection": os.environ.get("QDRANT_COLLECTION", "rag_chunks"),
         "qdrant_api_key": os.environ.get("QDRANT_API_KEY"),
@@ -61,8 +49,6 @@ async def upload(files: List[UploadFile] = File(...)) -> dict:
         raise HTTPException(status_code=400, detail="No files provided.")
 
     config = _get_config()
-    out_dir: Path = config["out_dir"]
-
     with tempfile.TemporaryDirectory() as tmp_dir:
         input_dir = Path(tmp_dir)
         for idx, upload_file in enumerate(files):
@@ -71,67 +57,41 @@ async def upload(files: List[UploadFile] = File(...)) -> dict:
             content = await upload_file.read()
             dest.write_bytes(content)
 
-        main.build_offline_pipeline(
+        summary = main.build_offline_pipeline(
             input_dir=input_dir,
-            out_dir=out_dir,
             chunk_size_words=config["chunk_words"],
             overlap_words=config["overlap_words"],
-            prefer_neural=config["prefer_neural"],
             model_name=config["model_name"],
-            prefer_faiss=False,
-            allow_fallback=config["allow_fallback"],
-            use_qdrant=config["use_qdrant"],
             qdrant_url=config["qdrant_url"],
             qdrant_collection=config["qdrant_collection"],
             qdrant_api_key=config["qdrant_api_key"],
         )
-
-    summary_path = out_dir / "build_summary.json"
-    summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
     return {"status": "ok", "summary": summary}
 
 
 @app.post("/api/query")
 def query(request: QueryRequest) -> dict:
     config = _get_config()
-    out_dir: Path = config["out_dir"]
-    if not out_dir.exists():
-        raise HTTPException(status_code=404, detail="Index directory not found.")
-
-    chunks = main.load_chunks(out_dir)
-    embedder = main.load_embedder(out_dir)
-    index = main.load_index(out_dir)
+    embedder = main.build_embedder(model_name=config["model_name"])
+    index = main.build_index(
+        qdrant_url=config["qdrant_url"],
+        qdrant_collection=config["qdrant_collection"],
+        qdrant_api_key=config["qdrant_api_key"],
+    )
 
     qv = embedder.embed([request.query])[0]
+    payloads, scores = index.search(qv, top_k=request.top_k)
     results = []
-    if isinstance(index, main.QdrantCosineIndex):
-        payloads, scores = index.search(qv, top_k=request.top_k)
-        for payload, score in zip(payloads, scores):
-            results.append(
-                {
-                    "score": float(score),
-                    "chunk_id": payload.get("chunk_id"),
-                    "title": payload.get("title"),
-                    "chunk_index": payload.get("chunk_index"),
-                    "source_path": payload.get("source_path"),
-                    "text": payload.get("text"),
-                }
-            )
-    else:
-        idxs, scores = index.search(qv, top_k=request.top_k)
-        for idx, score in zip(idxs, scores):
-            if idx < 0 or idx >= len(chunks):
-                continue
-            chunk = chunks[int(idx)]
-            results.append(
-                {
-                    "score": float(score),
-                    "chunk_id": chunk.chunk_id,
-                    "title": chunk.title,
-                    "chunk_index": chunk.chunk_index,
-                    "source_path": chunk.source_path,
-                    "text": chunk.text,
-                }
-            )
+    for payload, score in zip(payloads, scores):
+        results.append(
+            {
+                "score": float(score),
+                "chunk_id": payload.get("chunk_id"),
+                "title": payload.get("title"),
+                "chunk_index": payload.get("chunk_index"),
+                "source_path": payload.get("source_path"),
+                "text": payload.get("text"),
+            }
+        )
 
     return {"query": request.query, "top_k": request.top_k, "results": results}

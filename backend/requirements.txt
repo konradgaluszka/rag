@@ -3,9 +3,6 @@ pypdf
 beautifulsoup4
 markdown
 sentence-transformers
-faiss-cpu
-scikit-learn
-joblib
 qdrant-client>=1.8.0
 fastapi
 uvicorn

@@ -46,11 +46,8 @@ class IntegrationTest(unittest.TestCase):
         cls._api_port = 8001
         cls._api_url = f"http://127.0.0.1:{cls._api_port}"
         env = os.environ.copy()
-        env["RAG_OUT_DIR"] = str(Path(cls._tmp_dir.name) / "index")
         env["QDRANT_URL"] = "http://localhost:6333"
         env["QDRANT_COLLECTION"] = "rag_chunks_test"
-        env["PREFER_NEURAL"] = "true"
-        env["ALLOW_FALLBACK"] = "false"
         cls._api_proc = subprocess.Popen(
             [
                 sys.executable,
